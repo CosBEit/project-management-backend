@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
 from server.dependencies.auth import OAuth2PasswordBearerWithCookie
-from server.configs.db import users_collection
+from server.configs.db import projects_collection
 from pydantic import BaseModel
 from typing import Optional
 
@@ -60,14 +60,12 @@ async def create_project(project_data: ProjectInputDataModel, current_user: str 
         }
 
         # Insert the project into the database
-        await users_collection.update_one(
-            {"email": current_user["email"]},
-            {"$push": {"projects": new_project}}
-        )
+        await projects_collection.insert_one(new_project)
 
         # Get all projects for the user
-        user = await users_collection.find_one({"email": current_user["email"]})
-        projects = user.get("projects", [])
+        projects = await projects_collection.find(
+            {"created_by": current_user["email"]}
+        ).to_list(length=None)
 
         # Format dates for response
         formatted_projects = []
@@ -124,8 +122,9 @@ async def get_all_projects(current_user: str = Depends(oauth2_scheme)):
             )
 
         # Retrieve the user's projects from the database
-        user = await users_collection.find_one({"email": current_user["email"]})
-        projects = user.get("projects", [])
+        projects = await projects_collection.find(
+            {"created_by": current_user["email"]}
+        ).to_list(length=None)
 
         # Format dates for response
         formatted_projects = []
@@ -182,35 +181,39 @@ async def update_project(project_id: str, project_data: ProjectInputDataModel, c
                 detail="You do not have permission to perform this action.",
             )
 
-        # Find the user and the project
-        user = await users_collection.find_one({"email": current_user["email"]})
-        projects = user.get("projects", [])
-
         # Find the project to update
-        project_index = next((i for i, p in enumerate(
-            projects) if p["_id"] == project_id), None)
-        if project_index is None:
+        project = await projects_collection.find_one({"_id": project_id})
+        if not project:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Project not found.",
             )
 
-        # Update the project
-        projects[project_index]["project_name"] = project_data.project_name
-        projects[project_index]["description"] = project_data.description
-        projects[project_index]["start_date"] = project_data.start_date
-        projects[project_index]["end_date"] = project_data.end_date
-        projects[project_index]["updated_at"] = datetime.now()
-        projects[project_index]["updated_by"] = current_user["email"]
+        # Check if the user is the creator of the project
+        if project["created_by"] != current_user["email"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to update this project.",
+            )
 
-        # Update the user document
-        await users_collection.update_one(
-            {"email": current_user["email"]},
-            {"$set": {"projects": projects}}
+        # Update the project
+        update_data = {
+            "project_name": project_data.project_name,
+            "description": project_data.description,
+            "start_date": project_data.start_date,
+            "end_date": project_data.end_date,
+            "updated_at": datetime.now(),
+            "updated_by": current_user["email"]
+        }
+
+        # Update the project document
+        await projects_collection.update_one(
+            {"_id": project_id},
+            {"$set": update_data}
         )
 
         # Get the updated project
-        updated_project = projects[project_index].copy()
+        updated_project = await projects_collection.find_one({"_id": project_id})
 
         # Format dates for response
         if "created_at" in updated_project and updated_project["created_at"]:
@@ -264,27 +267,23 @@ async def delete_project(project_id: str, current_user: str = Depends(oauth2_sch
                 detail="You do not have permission to perform this action.",
             )
 
-        # Find the user and the project
-        user = await users_collection.find_one({"email": current_user["email"]})
-        projects = user.get("projects", [])
-
         # Find the project to delete
-        project_index = next((i for i, p in enumerate(
-            projects) if p["_id"] == project_id), None)
-        if project_index is None:
+        project = await projects_collection.find_one({"_id": project_id})
+        if not project:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Project not found.",
             )
 
-        # Remove the project
-        projects.pop(project_index)
+        # Check if the user is the creator of the project
+        if project["created_by"] != current_user["email"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to delete this project.",
+            )
 
-        # Update the user document
-        await users_collection.update_one(
-            {"email": current_user["email"]},
-            {"$set": {"projects": projects}}
-        )
+        # Delete the project
+        await projects_collection.delete_one({"_id": project_id})
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
