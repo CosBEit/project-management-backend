@@ -1,11 +1,14 @@
-from fastapi_mail import ConnectionConfig
 import os
+from dotenv import load_dotenv
+from fastapi_mail import ConnectionConfig
+
+load_dotenv()
 
 ORIGINS = [
-
     'http://localhost:3000', 
     'http://localhost:5173'
     ]
+
 REFERRERS = [
     'http://localhost',
     'http://localhost:3000/',

@@ -112,8 +112,8 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
         origins = ORIGINS
         referers = REFERRERS
 
-        KEY = bytes(settings.csrf_encryption_secrete_key.encode('utf-8'))
-        IV = bytes(settings.aes_encryption_initial_vector.encode('utf-8'))
+        KEY = bytes(os.getenv('csrf_encryption_secrete_key').encode('utf-8'))
+        IV = bytes(os.getenv('aes_encryption_initial_vector').encode('utf-8'))
         try:
 
             csrf_cookie = request.cookies.get("__HOST_csrf_token")
@@ -136,7 +136,7 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
                                 # Security Level 3(If JWT token failed decode inside the decrypted text,then it's
                                 # unauthorized)
                                 decoded_subjects = jwt.decode(
-                                    plainText, settings.csrf_token_secrete_key, algorithms=["HS256"])
+                                    plainText, os.getenv('csrf_token_secrete_key'), algorithms=["HS256"])
                                 print("decoded_subjects--->",
                                       decoded_subjects["_id"])
 
@@ -212,7 +212,7 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
                         plainText = unpad(cipher.decrypt(
                             bytes.fromhex(csrf_cookie)))
                         decoded_subjects = jwt.decode(
-                            plainText, settings.csrf_token_secrete_key, algorithms=["HS256"])
+                            plainText, os.getenv('csrf_token_secrete_key'), algorithms=["HS256"])
 
                         try:
                             hash_sub = decoded_subjects["email"] + \
@@ -240,147 +240,6 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
                             headers={"WWW-Authenticate": "Bearer"},
                         )
 
-
-class OAuth2PasswordBearerWithCookieAdmin(OAuth2):
-    def __init__(
-            self,
-            tokenUrl: str,
-            scheme_name: Optional[str] = None,
-            scopes: Optional[Dict[str, str]] = None,
-            auto_error: bool = True,
-    ):
-        if not scopes:
-            scopes = {}
-        flows = OAuthFlowsModel(
-            password={"tokenUrl": tokenUrl, "scopes": scopes})
-        super().__init__(flows=flows, scheme_name=scheme_name, auto_error=auto_error)
-
-    async def __call__(self, request: Request) -> Optional[str]:
-
-        origins = ORIGINS
-        referers = REFERRERS
-
-        KEY = bytes(settings.admin_aes_key.encode('utf-8'))
-        IV = bytes(settings.admin_aes_iv.encode('utf-8'))
-        try:
-
-            csrf_cookie = request.cookies.get("__HOST_csrf_token_admin")
-            session_cookie = request.cookies.get("sessionID_admin")
-            csrf_header_token = request.headers["X-CSRF-TOKEN"]
-
-            if request.headers["origin"] in origins:
-
-                try:
-                    # Security Level 1(If any of the below argument not found in respective place, then it's
-                    # unauthorized)
-                    if csrf_cookie and bool(csrf_header_token) and session_cookie:
-                        cipher = AES.new(KEY, AES.MODE_CBC, IV)
-                        try:
-                            # Security Level 2(If decryption fail because of cookie tamper, then it's unauthorized)
-                            plainText = unpad(cipher.decrypt(
-                                bytes.fromhex(csrf_cookie)))
-
-                            try:
-                                # Security Level 3(If JWT token failed decode inside the decrypted text,then it's
-                                # unauthorized)
-                                decoded_subjects = jwt.decode(
-                                    plainText, settings.admin_secrete_key, algorithms=["HS256"])
-
-                                # Security Level 4(If session ID inside the JWT sub of decrypted text !=session ID in
-                                # request header,then it's unauthorized)
-                                if decoded_subjects["admin_session_id"] == csrf_header_token:
-                                    print(
-                                        "CSRF verification Done!!.Session match waiting.....")
-                                    hash_sub = decoded_subjects["admin_session_id"]
-                                    try:
-                                        # Security Level 5(if token is not tied to respective session(i.e use of
-                                        # someone cookie in someone's browser),then it's unauthorized)
-                                        if pwd_context.verify(hash_sub, session_cookie):
-                                            print(
-                                                "CSRF verified and session matched")
-                                            return decoded_subjects
-                                        else:
-                                            raise HTTPException(
-                                                status_code=status.HTTP_401_UNAUTHORIZED,
-                                                detail="Session Match Failed",
-                                                headers={
-                                                    "WWW-Authenticate": "Bearer"},
-                                            )
-                                    except Exception as e:
-                                        print(e)
-                                        raise HTTPException(
-                                            status_code=status.HTTP_401_UNAUTHORIZED,
-                                            detail="Session Match Failed",
-                                            headers={
-                                                "WWW-Authenticate": "Bearer"},
-                                        )
-
-                                else:
-                                    raise HTTPException(
-                                        status_code=status.HTTP_401_UNAUTHORIZED,
-                                        detail="CSRF verify failed!!",
-                                        headers={"WWW-Authenticate": "Bearer"},
-                                    )
-
-                            except Exception as e:
-                                print(e)
-                                raise HTTPException(
-                                    status_code=status.HTTP_401_UNAUTHORIZED,
-                                    detail="Not authenticated",
-                                    headers={"WWW-Authenticate": "Bearer"},
-                                )
-                        except Exception as e:
-                            print(e)
-                            raise HTTPException(
-                                status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail="Not authenticated",
-                                headers={"WWW-Authenticate": "Bearer"},
-                            )
-                except Exception as e:
-                    print(e)
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="All auth parmater not found",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
-
-        except KeyError as e:
-
-            if e:
-
-                if request.headers["referer"] in referers:
-
-                    try:
-                        cipher = AES.new(KEY, AES.MODE_CBC, IV)
-                        plainText = unpad(cipher.decrypt(
-                            bytes.fromhex(csrf_cookie)))
-                        decoded_subjects = jwt.decode(
-                            plainText, settings.admin_secrete_key, algorithms=["HS256"])
-
-                        try:
-                            hash_sub = decoded_subjects["admin_session_id"]
-
-                            if pwd_context.verify(hash_sub, session_cookie):
-                                print("CSRF verified and session matched")
-                                return decoded_subjects
-                            else:
-                                raise HTTPException(
-                                    status_code=status.HTTP_401_UNAUTHORIZED,
-                                    detail="Session Match Failed",
-                                    headers={"WWW-Authenticate": "Bearer"}, )
-                        except Exception as e:
-                            print(e)
-                            raise HTTPException(
-                                status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail="Session Match Failed",
-                                headers={"WWW-Authenticate": "Bearer"}, )
-                    except Exception as e:
-                        print(e)
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Session Match Failed",
-                            headers={"WWW-Authenticate": "Bearer"},
-                        )
 
 
 async def send_forgot_password_email(recipient_email: str, reset_link: str, link_expiration: dict):

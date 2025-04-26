@@ -1,0 +1,303 @@
+import uuid
+import traceback
+from datetime import datetime
+from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.responses import JSONResponse
+from server.dependencies.auth import OAuth2PasswordBearerWithCookie
+from server.configs.db import users_collection
+from pydantic import BaseModel
+from typing import Optional
+
+# Create a new router
+router = APIRouter()
+
+# Define the OAuth2 scheme for authentication
+oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/api/v1/auth/login")
+
+# Define the project data model
+
+
+class ProjectInputDataModel(BaseModel):
+    project_name: str
+    description: Optional[str] = None
+    start_date: datetime
+    end_date: datetime
+
+# Create a new project
+
+
+@router.post("/projects/create")
+async def create_project(project_data: ProjectInputDataModel, current_user: str = Depends(oauth2_scheme)):
+    """Create a new project.
+
+    Args:
+        project_data (ProjectInputDataModel): The project's data including name, description, start date, and end date.
+        current_user (str): The current authenticated user.
+
+    Returns:
+        JSONResponse: A response indicating the creation status.
+
+    Raises:
+        HTTPException: If the user is not authorized or an error occurs during the process.
+    """
+    try:
+        # Check if the current user is an admin
+        if current_user["role"] != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to perform this action.",
+            )
+
+        # Create a new project document
+        new_project = {
+            "_id": str(uuid.uuid4()),
+            "project_name": project_data.project_name,
+            "description": project_data.description,
+            "start_date": project_data.start_date,
+            "end_date": project_data.end_date,
+            "created_at": datetime.now(),
+            "created_by": current_user["email"]
+        }
+
+        # Insert the project into the database
+        await users_collection.update_one(
+            {"email": current_user["email"]},
+            {"$push": {"projects": new_project}}
+        )
+
+        # Get all projects for the user
+        user = await users_collection.find_one({"email": current_user["email"]})
+        projects = user.get("projects", [])
+
+        # Format dates for response
+        formatted_projects = []
+        for project in projects:
+            formatted_project = project.copy()
+            if "created_at" in formatted_project and formatted_project["created_at"]:
+                formatted_project["created_at"] = formatted_project["created_at"].isoformat(
+                )
+            if "updated_at" in formatted_project and formatted_project["updated_at"]:
+                formatted_project["updated_at"] = formatted_project["updated_at"].isoformat(
+                )
+            if "start_date" in formatted_project and formatted_project["start_date"]:
+                formatted_project["start_date"] = formatted_project["start_date"].isoformat(
+                )
+            if "end_date" in formatted_project and formatted_project["end_date"]:
+                formatted_project["end_date"] = formatted_project["end_date"].isoformat(
+                )
+            formatted_projects.append(formatted_project)
+
+        content = {"message": "Project created successfully",
+                   "projects": formatted_projects}
+        return JSONResponse(status_code=status.HTTP_201_CREATED, content=content)
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+
+# Get all projects
+
+
+@router.get("/projects")
+async def get_all_projects(current_user: str = Depends(oauth2_scheme)):
+    """Get all projects for the current user.
+
+    Args:
+        current_user (str): The current authenticated user.
+
+    Returns:
+        JSONResponse: A response containing the list of projects.
+
+    Raises:
+        HTTPException: If the user is not authorized.
+    """
+    try:
+        # Check if the current user is an admin
+        if current_user["role"] != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="You do not have permission to perform this action.",
+            )
+
+        # Retrieve the user's projects from the database
+        user = await users_collection.find_one({"email": current_user["email"]})
+        projects = user.get("projects", [])
+
+        # Format dates for response
+        formatted_projects = []
+        for project in projects:
+            formatted_project = project.copy()
+            if "created_at" in formatted_project and formatted_project["created_at"]:
+                formatted_project["created_at"] = formatted_project["created_at"].isoformat(
+                )
+            if "updated_at" in formatted_project and formatted_project["updated_at"]:
+                formatted_project["updated_at"] = formatted_project["updated_at"].isoformat(
+                )
+            if "start_date" in formatted_project and formatted_project["start_date"]:
+                formatted_project["start_date"] = formatted_project["start_date"].isoformat(
+                )
+            if "end_date" in formatted_project and formatted_project["end_date"]:
+                formatted_project["end_date"] = formatted_project["end_date"].isoformat(
+                )
+            formatted_projects.append(formatted_project)
+
+        content = {"projects": formatted_projects}
+        return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+
+# Update a project
+
+
+@router.put("/projects/{project_id}")
+async def update_project(project_id: str, project_data: ProjectInputDataModel, current_user: str = Depends(oauth2_scheme)):
+    """Update a project.
+
+    Args:
+        project_id (str): The ID of the project to update.
+        project_data (ProjectInputDataModel): The updated project data.
+        current_user (str): The current authenticated user.
+
+    Returns:
+        JSONResponse: A response indicating the update status.
+
+    Raises:
+        HTTPException: If the user is not authorized or the project is not found.
+    """
+    try:
+        # Check if the current user is an admin
+        if current_user["role"] != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to perform this action.",
+            )
+
+        # Find the user and the project
+        user = await users_collection.find_one({"email": current_user["email"]})
+        projects = user.get("projects", [])
+
+        # Find the project to update
+        project_index = next((i for i, p in enumerate(
+            projects) if p["_id"] == project_id), None)
+        if project_index is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found.",
+            )
+
+        # Update the project
+        projects[project_index]["project_name"] = project_data.project_name
+        projects[project_index]["description"] = project_data.description
+        projects[project_index]["start_date"] = project_data.start_date
+        projects[project_index]["end_date"] = project_data.end_date
+        projects[project_index]["updated_at"] = datetime.now()
+        projects[project_index]["updated_by"] = current_user["email"]
+
+        # Update the user document
+        await users_collection.update_one(
+            {"email": current_user["email"]},
+            {"$set": {"projects": projects}}
+        )
+
+        # Get the updated project
+        updated_project = projects[project_index].copy()
+
+        # Format dates for response
+        if "created_at" in updated_project and updated_project["created_at"]:
+            updated_project["created_at"] = updated_project["created_at"].isoformat()
+        if "updated_at" in updated_project and updated_project["updated_at"]:
+            updated_project["updated_at"] = updated_project["updated_at"].isoformat()
+        if "start_date" in updated_project and updated_project["start_date"]:
+            updated_project["start_date"] = updated_project["start_date"].isoformat()
+        if "end_date" in updated_project and updated_project["end_date"]:
+            updated_project["end_date"] = updated_project["end_date"].isoformat()
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "message": "Project updated successfully",
+                "project": updated_project
+            }
+        )
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) from e
+
+# Delete a project
+
+
+@router.delete("/projects/{project_id}")
+async def delete_project(project_id: str, current_user: str = Depends(oauth2_scheme)):
+    """Delete a project.
+
+    Args:
+        project_id (str): The ID of the project to delete.
+        current_user (str): The current authenticated user.
+
+    Returns:
+        JSONResponse: A response indicating the deletion status.
+
+    Raises:
+        HTTPException: If the user is not authorized or the project is not found.
+    """
+    try:
+        # Check if the current user is an admin
+        if current_user["role"] != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to perform this action.",
+            )
+
+        # Find the user and the project
+        user = await users_collection.find_one({"email": current_user["email"]})
+        projects = user.get("projects", [])
+
+        # Find the project to delete
+        project_index = next((i for i, p in enumerate(
+            projects) if p["_id"] == project_id), None)
+        if project_index is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found.",
+            )
+
+        # Remove the project
+        projects.pop(project_index)
+
+        # Update the user document
+        await users_collection.update_one(
+            {"email": current_user["email"]},
+            {"$set": {"projects": projects}}
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "message": "Project deleted successfully"
+            }
+        )
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) from e

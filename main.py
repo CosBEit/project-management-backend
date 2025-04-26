@@ -2,7 +2,8 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from dotenv import load_dotenv
-from server.api import login
+from server.api.login import router as login_router
+from server.api.projects import router as projects_router
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
@@ -19,10 +20,11 @@ app.add_middleware(
     max_age=3600
 )
 
-app.include_router(login.router, prefix="/api/v1")
+app.include_router(login_router, prefix="/api/v1")
+app.include_router(projects_router, prefix="/api/v1")
 
 if __name__ == "__main__":
-    print("The server runing with database=",os.getenv('server_port'))
+    print("The server runing with database=", os.getenv('server_port'))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
