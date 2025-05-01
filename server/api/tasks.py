@@ -1,3 +1,4 @@
+from os import link
 import uuid
 import traceback
 from datetime import datetime
@@ -7,6 +8,7 @@ from server.modals.tasks import (
     CreateTaskInputDataModel,
     UpdateTaskInputDataModel,
     UpdateTaskDatesModel,
+    UpdateTaskModel,
     UpdateTaskStatusModel,
     DeleteTaskInputDataModel,
     ProjectLinksInputDataModel,
@@ -240,78 +242,78 @@ async def get_tasks(
 #         ) from e
 
 
-@router.put("/tasks/{task_id}")
-async def update_task(
-    task_id: str,
-    task_data: UpdateTaskInputDataModel,
-    current_user: dict = Depends(oauth2_scheme),
-):
-    """Update an existing task.
+# @router.put("/tasks/{task_id}")
+# async def update_task(
+#     task_id: str,
+#     task_data: UpdateTaskInputDataModel,
+#     current_user: dict = Depends(oauth2_scheme),
+# ):
+#     """Update an existing task.
 
-    Args:
-        task_id (str): The ID of the task to update.
-        task_data (UpdateTaskInputDataModel): The updated task data.
-        current_user (dict): The current authenticated user.
-        db: Database connection.
+#     Args:
+#         task_id (str): The ID of the task to update.
+#         task_data (UpdateTaskInputDataModel): The updated task data.
+#         current_user (dict): The current authenticated user.
+#         db: Database connection.
 
-    Returns:
-        dict: The updated task.
+#     Returns:
+#         dict: The updated task.
 
-    Raises:
-        HTTPException: If the user is not authorized, the task is not found, or an error occurs.
-    """
-    try:
-        # Check if the current user is an admin
-        if current_user["role"] != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only admins can update tasks"
-            )
+#     Raises:
+#         HTTPException: If the user is not authorized, the task is not found, or an error occurs.
+#     """
+#     try:
+#         # Check if the current user is an admin
+#         if current_user["role"] != "admin":
+#             raise HTTPException(
+#                 status_code=status.HTTP_403_FORBIDDEN,
+#                 detail="Only admins can update tasks"
+#             )
 
-        # Find the task to update
-        task = await tasks_collection.find_one({"_id": task_id})
+#         # Find the task to update
+#         task = await tasks_collection.find_one({"_id": task_id})
 
-        # Prepare the update data
-        update_data = {
-            "text": task_data.text,
-            "task_description": task_data.task_description,
-            "start": datetime.combine(task_data.start, datetime.min.time()),
-            "end": datetime.combine(task_data.end, datetime.max.time()),
-            "assignee": task_data.assignee,
-            "classification": task_data.classification,
-            "updated_at": datetime.now(),
-            "updated_by": current_user["email"]
-        }
+#         # Prepare the update data
+#         update_data = {
+#             "text": task_data.text,
+#             "task_description": task_data.task_description,
+#             "start": datetime.combine(task_data.start, datetime.min.time()),
+#             "end": datetime.combine(task_data.end, datetime.max.time()),
+#             "assignee": task_data.assignee,
+#             "classification": task_data.classification,
+#             "updated_at": datetime.now(),
+#             "updated_by": current_user["email"]
+#         }
 
-        # Update the task
-        await tasks_collection.update_one(
-            {"_id": task_id},
-            {"$set": update_data}
-        )
+#         # Update the task
+#         await tasks_collection.update_one(
+#             {"_id": task_id},
+#             {"$set": update_data}
+#         )
 
-        # Get the updated task
-        updated_task = await tasks_collection.find_one({"_id": task_id})
+#         # Get the updated task
+#         updated_task = await tasks_collection.find_one({"_id": task_id})
 
-        # Convert datetime objects to date strings
-        if "created_at" in updated_task and "start" in updated_task and "end" in updated_task:
-            updated_task["start"] = updated_task["start"].date().isoformat()
-            updated_task["end"] = updated_task["end"].date().isoformat()
-            updated_task["created_at"] = updated_task["created_at"].date(
-            ).isoformat()
+#         # Convert datetime objects to date strings
+#         if "created_at" in updated_task and "start" in updated_task and "end" in updated_task:
+#             updated_task["start"] = updated_task["start"].date().isoformat()
+#             updated_task["end"] = updated_task["end"].date().isoformat()
+#             updated_task["created_at"] = updated_task["created_at"].date(
+#             ).isoformat()
 
-        updated_task["id"] = updated_task["_id"]
-        del updated_task["_id"]
+#         updated_task["id"] = updated_task["_id"]
+#         del updated_task["_id"]
 
-        return updated_task
+#         return updated_task
 
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        ) from e
+#     except HTTPException as e:
+#         raise e
+#     except Exception as e:
+#         traceback.print_exc()
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=str(e)
+#         ) from e
 
 
 @router.delete("/tasks/{task_id}")
@@ -776,7 +778,6 @@ async def get_task_details(
             }
         )
 
-
         # Convert datetime objects to date strings
         if "created_at" in task and "start" in task and "end" in task:
             task["start"] = task["start"].date().isoformat()
@@ -821,7 +822,6 @@ async def update_task_status(
 
         # Find the task
         task = await tasks_collection.find_one({"_id": task_data.task_id})
-
 
         # Check if the task is assigned to the current user
         if task["assignee"] != user_email:
@@ -1037,6 +1037,96 @@ async def get_report(
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content=report
+        )
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) from e
+
+
+@router.put("/tasks")
+async def update_task(
+    task_data: UpdateTaskModel,
+    current_user: dict = Depends(oauth2_scheme),
+):
+    """Update a task.
+
+    Args:
+        task_data (UpdateTaskModel): The updated task data containing only the fields to update.
+        current_user (dict): The current authenticated user.
+
+    Returns:
+        JSONResponse: A response indicating the update status.
+
+    Raises:
+        HTTPException: If the user is not authorized or an error occurs.
+    """
+    try:
+        # Check if the current user is a user (not admin)
+        if current_user and current_user["role"] not in ["user", "admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="You do not have permission to perform this action."
+            )
+
+        # Handle task updates if task data is provided
+        if task_data.task:
+            # Convert task data to dict and remove None values
+            task_update_data = {
+                k: v for k, v in task_data.task.model_dump().items() if v is not None}
+
+            # If there are fields to update
+            if task_update_data:
+                # Handle datetime fields
+                if "start" in task_update_data:
+                    task_update_data["start"] = datetime.combine(
+                        task_update_data["start"], datetime.min.time())
+                if "end" in task_update_data:
+                    task_update_data["end"] = datetime.combine(
+                        task_update_data["end"], datetime.max.time())
+
+                # Update the task
+                await tasks_collection.update_one(
+                    {"_id": task_data.task_id},
+                    {"$set": task_update_data}
+                )
+
+        # Handle links updates if links data is provided
+        if task_data.links and task_data.project_id:
+            links = []
+            for link in task_data.links:
+                links.append({
+                    "link_id": str(uuid.uuid4()),
+                    "source": link["source"],
+                    "target": link["target"],
+                    "type": link["type"]
+                })
+
+            # Check if links document exists for the project
+            existing_links = await links_collection.find_one({"project_id": task_data.project_id})
+
+            if existing_links:
+                # Update existing links
+                await links_collection.update_one(
+                    {"project_id": task_data.project_id},
+                    {"$set": {"links": links}}
+                )
+            else:
+                # Create new links document
+                await links_collection.insert_one({
+                    "project_id": task_data.project_id,
+                    "links": links,
+                    "_id": str(uuid.uuid4())
+                })
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"message": "Task updated successfully"}
         )
 
     except HTTPException as e:

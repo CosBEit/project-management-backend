@@ -1,0 +1,68 @@
+import os
+import traceback
+from fastapi import HTTPException, status
+from fastapi_mail import FastMail, MessageSchema
+from server.constants.auth import conf
+from jinja2 import Template
+import smtplib
+
+
+async def send_email(recipient_email, subject, body, body_type):
+    """Send an email to the recipient.
+
+    Args:
+        recipient_email (str): The email address of the recipient.
+        subject (str): The subject of the email.
+    """
+
+    try:
+        fm = FastMail(conf)
+        await fm.send_message(
+            MessageSchema(
+                subject=subject,
+                recipients=recipient_email,
+                body=body,
+                subtype=body_type,
+            )
+        )
+
+    except (smtplib.SMTPException, smtplib.SMTPRecipientsRefused) as e:
+        # Handle email-related exceptions
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to send email: {str(e)}"
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+
+
+async def send_invitation_email(recipient_email, setup_link, link_expiration):
+    """Send an invitation email to the recipient to set up their account.
+
+    Args:
+        recipient_email (str): The email address of the recipient.
+        setup_link (str): The link to set up the account password.
+    """
+    try:
+        # Get the current working directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Construct the path to the email template file
+        template_path = os.path.join(
+            current_dir, "../templates/invitation_email.html")
+
+        with open(template_path, "r", encoding="utf-8") as file:
+            template = Template(file.read())
+
+        body = template.render(
+            setup_link=setup_link, link_expiration_format=link_expiration["format"], link_expiration_value=link_expiration['value'])
+        subject = "アカウント作成のご案内"
+        await send_email([recipient_email], subject, body, "html")
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e

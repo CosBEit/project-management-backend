@@ -3,7 +3,7 @@ import os
 import traceback
 from datetime import datetime, timedelta
 import uuid
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Response
 from server.modals.login import LoginInputDataModel, ForgotPasswordInputDataModel, ResetPasswordInputDataModel
 from dotenv import load_dotenv
 from server.dependencies.auth import get_user, get_password_hash, authenticate_user, create_csrf_token, create_session_id_hash, send_forgot_password_email  
@@ -249,3 +249,29 @@ async def reset_password(reset_password_data: ResetPasswordInputDataModel):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         ) from e
+
+
+@router.get("/auth/logout")
+async def logout(response: Response):
+
+    try:
+        response.delete_cookie(
+            key="__HOST_csrf_token",
+            path="/",
+            secure=True,
+            # domain=".cosbe.inc"
+        )
+        response.delete_cookie(
+            key="sessionID",
+            path="/",
+            secure=True,
+            # domain=".cosbe.inc"
+        )
+        return {"message": "ログアウトしました。"}
+    except Exception as e:
+
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+

@@ -4,16 +4,16 @@ from datetime import datetime
 
 
 class TaskBase(BaseModel):
-    text: str = Field(..., description="Task name")
+    text: Optional[str] = Field(None, description="Task name")
     task_description: Optional[str] = Field(
         None, description="Task description")
-    start: datetime = Field(..., description="Task start date")
-    end: datetime = Field(..., description="Task end date")
-    parent: int = Field(0, description="Parent task ID")
-    assignee: str = Field(..., description="Task assignee email")
-    progress: float = Field(0, description="Task progress percentage")
-    type: str = Field("task", description="Task type")
-    open: bool = Field(False, description="Whether task is open")
+    start: Optional[datetime] = Field(None, description="Task start date")
+    end: Optional[datetime] = Field(None, description="Task end date")
+    parent: Optional[int] = Field(None, description="Parent task ID")
+    assignee: Optional[str] = Field(None, description="Task assignee email")
+    progress: Optional[float] = Field(None, description="Task progress percentage")
+    type: Optional[str] = Field(None, description="Task type")
+    open: Optional[bool] = Field(None, description="Whether task is open")
     classification: Optional[str] = Field(
         None, description="Task classification")
 
@@ -56,3 +56,12 @@ class ManualInputDataModel(BaseModel):
 class ReportInputDataModel(BaseModel):
     id: str = Field(..., description="Task ID")
     report: str = Field(..., description="Task report content")
+
+
+class UpdateTaskModel(BaseModel):
+    task_id: Optional[str] = Field(None, description="Task ID")
+    project_id: str = Field(..., description="Project ID")
+    task: Optional[TaskBase] = Field(
+        None, description="Task object with updated fields")
+    links: Optional[List[dict]] = Field(
+        None, description="Array of task links")
