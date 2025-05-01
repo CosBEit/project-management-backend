@@ -2,6 +2,7 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from dotenv import load_dotenv
+from mangum import Mangum
 from server.api.login import router as login_router
 from server.api.projects import router as projects_router
 from server.api.tasks import router as tasks_router
@@ -15,13 +16,14 @@ app = FastAPI(title="Coseb Project Management")
 # More explicit CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["https://project-management.cosbe.inc","http://localhost:5173","https://project-management.cosbe.inc/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     max_age=3600
 )
 
+handler = Mangum(app)
 app.include_router(login_router, prefix="/api/v1")
 app.include_router(projects_router, prefix="/api/v1")
 app.include_router(tasks_router, prefix="/api/v1")
