@@ -17,7 +17,7 @@ from server.modals.tasks import (
 )
 from server.dependencies.auth import OAuth2PasswordBearerWithCookie
 from server.configs.db import tasks_collection, links_collection, projects_collection
-from server.dependencies.send_emails import send_task_creation_email
+from server.dependencies.send_emails import send_task_creation_email, send_assignee_change_email
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/api/v1/auth/login")
@@ -1083,6 +1083,14 @@ async def update_task(
                 detail="You do not have permission to perform this action."
             )
 
+        # Get the current task data
+        current_task = await tasks_collection.find_one({"_id": task_data.task_id})
+        if not current_task:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found"
+            )
+
         # Handle task updates if task data is provided
         if task_data.task:
             # Convert task data to dict and remove None values
@@ -1098,6 +1106,29 @@ async def update_task(
                 if "end" in task_update_data:
                     task_update_data["end"] = datetime.combine(
                         task_update_data["end"], datetime.max.time())
+
+                # Check if assignee is being changed
+                if "assignee" in task_update_data and task_update_data["assignee"] != current_task["assignee"]:
+                    # Send email to both old and new assignee
+                    try:
+                        # Send to old assignee
+                        await send_assignee_change_email(
+                            current_task["assignee"],
+                            current_task,
+                            current_task["assignee"],
+                            task_update_data["assignee"]
+                        )
+                        # Send to new assignee
+                        await send_assignee_change_email(
+                            task_update_data["assignee"],
+                            current_task,
+                            current_task["assignee"],
+                            task_update_data["assignee"]
+                        )
+                    except Exception as e:
+                        # Log the error but don't fail the task update
+                        print(
+                            f"Failed to send assignee change emails: {str(e)}")
 
                 # Update the task
                 await tasks_collection.update_one(

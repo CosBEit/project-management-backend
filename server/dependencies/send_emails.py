@@ -112,3 +112,51 @@ async def send_task_creation_email(recipient_email, task_data):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         ) from e
+
+
+async def send_assignee_change_email(recipient_email, task_data, old_assignee, new_assignee):
+    """Send an assignee change notification email to the recipient.
+
+    Args:
+        recipient_email (str): The email address of the recipient.
+        task_data (dict): The task data containing task details.
+        old_assignee (str): The previous assignee's email.
+        new_assignee (str): The new assignee's email.
+    """
+    try:
+        # Get the current working directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Construct the path to the email template file
+        template_path = os.path.join(
+            current_dir, "../templates/assignee_change_email.html")
+
+        with open(template_path, "r", encoding="utf-8") as file:
+            template = Template(file.read())
+
+        # Format dates for display
+        start_date = task_data["start"].strftime(
+            "%Y-%m-%d") if isinstance(task_data["start"], datetime) else task_data["start"]
+        end_date = task_data["end"].strftime(
+            "%Y-%m-%d") if isinstance(task_data["end"], datetime) else task_data["end"]
+
+        # Render the template with task data
+        body = template.render(
+            task_name=task_data["text"],
+            task_description=task_data["task_description"],
+            start_date=start_date,
+            end_date=end_date,
+            progress=task_data["progress"],
+            old_assignee=old_assignee,
+            new_assignee=new_assignee,
+            # Replace with your actual task URL
+            task_link=f"https://cosbe.inc/tasks/{task_data['_id']}"
+        )
+
+        subject = "タスク担当者変更のお知らせ"
+        await send_email([recipient_email], subject, body, "html")
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e

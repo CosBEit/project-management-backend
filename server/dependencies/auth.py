@@ -119,11 +119,6 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
             csrf_cookie = request.cookies.get("__HOST_csrf_token")
             session_cookie = request.cookies.get("sessionID")
             csrf_header_token = request.headers["X-CSRF-TOKEN"]
-            print("csrf_cookie--->",csrf_cookie)
-            print("session_cookie--->",session_cookie)
-            print("csrf_header_token--->",csrf_header_token)
-            print("request.headers--->",request.headers)
-            print("request.headers['origin']--->",request.headers["origin"] in origins)
 
             if request.headers["origin"] in origins:
 
@@ -143,11 +138,6 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
                                 # unauthorized)
                                 decoded_subjects = jwt.decode(
                                     plainText, os.getenv('csrf_token_secrete_key'), algorithms=["HS256"])
-                                print("decoded_subjects--->",
-                                      decoded_subjects["_id"])
-
-                                print("csrf_header_token--->",
-                                      csrf_header_token)
                                 # Security Level 4(If session ID inside the JWT sub of decrypted text !=session ID in
                                 # request header,then it's unauthorized)
                                 if decoded_subjects["_id"] == csrf_header_token:

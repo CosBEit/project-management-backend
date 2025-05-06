@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>新規タスク作成のお知らせ</title>
+    <title>タスク担当者変更のお知らせ</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -72,6 +72,12 @@
       .task-link:hover {
         background-color: #4b0082;
       }
+      .change-notice {
+        background-color: #fff3cd;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 15px 0;
+      }
     </style>
   </head>
   <body>
@@ -86,21 +92,29 @@
         </a>
       </div>
       <div class="content">
-        <h2>新規タスク作成のお知らせ</h2>
+        <h2>タスク担当者変更のお知らせ</h2>
         <p>こんにちは、</p>
-        <p>新しいタスクが作成されました。以下の詳細をご確認ください：</p>
+        <p>以下のタスクの担当者が変更されました：</p>
         <div class="task-details">
           <p><strong>タスク名：</strong> {{task_name}}</p>
           <p><strong>説明：</strong> {{task_description}}</p>
           <p><strong>開始日：</strong> {{start_date}}</p>
           <p><strong>終了日：</strong> {{end_date}}</p>
-          <p><strong>担当者：</strong> {{assignee}}</p>
           <p><strong>進捗状況：</strong> {{progress}}%</p>
+        </div>
+        <div class="change-notice">
+          <p><strong>変更内容：</strong></p>
+          <p>
+            担当者が {{old_assignee}} から {{new_assignee}} に変更されました。
+          </p>
         </div>
         <a href="{{task_link}}" class="task-link">タスクを確認する</a>
       </div>
       <div class="footer">
-        <p>このメールはCosBEプロジェクト管理アプリケーションから送信されています。</p>
+        <p>
+          このメールはCosBEプロジェクト管理アプリケーションから送信されています。
+        </p>
+        <p>このメールは日本製鉄堺ブレイザーズから送信されています。</p>
         <img
           src="https://res.cloudinary.com/dwg22vc1v/image/upload/v1709869954/bn6z82jk0uxgxqsxurmv.png"
           alt="Image Description"
