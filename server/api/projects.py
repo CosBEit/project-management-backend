@@ -115,6 +115,7 @@ async def get_all_projects(current_user: str = Depends(oauth2_scheme)):
     """
     try:
         # Check if the current user is an admin
+        print(current_user)
         if current_user["role"] != "admin":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

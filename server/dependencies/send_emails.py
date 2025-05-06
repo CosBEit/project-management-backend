@@ -5,6 +5,7 @@ from fastapi_mail import FastMail, MessageSchema
 from server.constants.auth import conf
 from jinja2 import Template
 import smtplib
+from datetime import datetime
 
 
 async def send_email(recipient_email, subject, body, body_type):
@@ -59,6 +60,51 @@ async def send_invitation_email(recipient_email, setup_link, link_expiration):
         body = template.render(
             setup_link=setup_link, link_expiration_format=link_expiration["format"], link_expiration_value=link_expiration['value'])
         subject = "アカウント作成のご案内"
+        await send_email([recipient_email], subject, body, "html")
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
+
+
+async def send_task_creation_email(recipient_email, task_data):
+    """Send a task creation notification email to the recipient.
+
+    Args:
+        recipient_email (str): The email address of the recipient.
+        task_data (dict): The task data containing task details.
+    """
+    try:
+        # Get the current working directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Construct the path to the email template file
+        template_path = os.path.join(
+            current_dir, "../templates/task_creation_email.html")
+
+        with open(template_path, "r", encoding="utf-8") as file:
+            template = Template(file.read())
+
+        # Format dates for display
+        start_date = task_data["start"].strftime(
+            "%Y-%m-%d") if isinstance(task_data["start"], datetime) else task_data["start"]
+        end_date = task_data["end"].strftime(
+            "%Y-%m-%d") if isinstance(task_data["end"], datetime) else task_data["end"]
+
+        # Render the template with task data
+        body = template.render(
+            task_name=task_data["text"],
+            task_description=task_data["task_description"],
+            start_date=start_date,
+            end_date=end_date,
+            assignee=task_data["assignee"],
+            progress=task_data["progress"],
+            # Replace with your actual task URL
+            task_link=f"https://cosbe.inc/tasks/{task_data['_id']}"
+        )
+
+        subject = "新規タスク作成のお知らせ"
         await send_email([recipient_email], subject, body, "html")
 
     except Exception as e:

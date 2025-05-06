@@ -119,6 +119,11 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
             csrf_cookie = request.cookies.get("__HOST_csrf_token")
             session_cookie = request.cookies.get("sessionID")
             csrf_header_token = request.headers["X-CSRF-TOKEN"]
+            print("csrf_cookie--->",csrf_cookie)
+            print("session_cookie--->",session_cookie)
+            print("csrf_header_token--->",csrf_header_token)
+            print("request.headers--->",request.headers)
+            print("request.headers['origin']--->",request.headers["origin"] in origins)
 
             if request.headers["origin"] in origins:
 
@@ -131,6 +136,7 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
                             # Security Level 2(If decryption fail because of cookie tamper, then it's unauthorized)
                             plainText = unpad(cipher.decrypt(
                                 bytes.fromhex(csrf_cookie)))
+                            print("plainText--->",plainText)
 
                             try:
                                 # Security Level 3(If JWT token failed decode inside the decrypted text,then it's

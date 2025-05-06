@@ -17,6 +17,7 @@ from server.modals.tasks import (
 )
 from server.dependencies.auth import OAuth2PasswordBearerWithCookie
 from server.configs.db import tasks_collection, links_collection, projects_collection
+from server.dependencies.send_emails import send_task_creation_email
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/api/v1/auth/login")
@@ -73,6 +74,14 @@ async def create_task(
         }
 
         await tasks_collection.insert_one(new_task)
+
+        # Send email notification to the assignee if email is provided
+        if task_data.assignee:
+            try:
+                await send_task_creation_email(task_data.assignee, new_task)
+            except Exception as e:
+                # Log the error but don't fail the task creation
+                print(f"Failed to send task creation email: {str(e)}")
 
         return {"message": "Task created successfully", "unique_id": _id}
 
@@ -1101,7 +1110,7 @@ async def update_task(
             links = []
             for link in task_data.links:
                 links.append({
-                    "link_id": str(uuid.uuid4()),
+                    "id": str(uuid.uuid4()),
                     "source": link["source"],
                     "target": link["target"],
                     "type": link["type"]

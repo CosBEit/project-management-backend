@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>新規タスク作成のお知らせ</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 600px;
+        margin: auto;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      .header {
+        padding: 32px 0;
+        border-bottom: 1px solid #e1e3e7;
+        width: 100%;
+        text-align: center;
+      }
+      .header img {
+        max-width: 80px;
+      }
+      .content {
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e1e3e7;
+        margin-bottom: 1rem;
+        color: #0f1d28;
+      }
+      .content h2 {
+        color: #0f1d28;
+      }
+      .content p {
+        color: #0f1d28;
+      }
+      .content h1 {
+        text-align: center;
+        letter-spacing: 0.5;
+      }
+      .footer {
+        color: #545f77;
+        font-size: 12px;
+        text-align: center;
+        margin-bottom: 32px;
+      }
+      .footer img {
+        max-width: 100%;
+      }
+      .task-details {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .task-details p {
+        margin: 5px 0;
+      }
+      .task-link {
+        display: inline-block;
+        background-color: indigo;
+        color: white !important;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 4px;
+        margin-top: 20px;
+        font-weight: bold;
+      }
+      .task-link:hover {
+        background-color: #4b0082;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <a href="https://cosbe.inc/" title="logo" target="_blank">
+          <img
+            src="https://res.cloudinary.com/dwg22vc1v/image/upload/v1709869954/bn6z82jk0uxgxqsxurmv.png"
+            title="logo"
+            alt="logo"
+          />
+        </a>
+      </div>
+      <div class="content">
+        <h2>新規タスク作成のお知らせ</h2>
+        <p>こんにちは、</p>
+        <p>新しいタスクが作成されました。以下の詳細をご確認ください：</p>
+        <div class="task-details">
+          <p><strong>タスク名：</strong> {{task_name}}</p>
+          <p><strong>説明：</strong> {{task_description}}</p>
+          <p><strong>開始日：</strong> {{start_date}}</p>
+          <p><strong>終了日：</strong> {{end_date}}</p>
+          <p><strong>担当者：</strong> {{assignee}}</p>
+          <p><strong>進捗状況：</strong> {{progress}}%</p>
+        </div>
+        <a href="{{task_link}}" class="task-link">タスクを確認する</a>
+      </div>
+      <div class="footer">
+        <p>このメールはCosBEプロジェクト管理アプリケーションから送信されています。</p>
+        <p>このメールは日本製鉄堺ブレイザーズから送信されています。</p>
+        <img
+          src="https://res.cloudinary.com/dwg22vc1v/image/upload/v1709869954/bn6z82jk0uxgxqsxurmv.png"
+          alt="Image Description"
+        />
+      </div>
+    </div>
+  </body>
+</html>
