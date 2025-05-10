@@ -5,13 +5,15 @@ from datetime import datetime
 
 class TaskBase(BaseModel):
     text: Optional[str] = Field(None, description="Task name")
+    priority: Optional[str] = Field(None, description="Task priority")
     task_description: Optional[str] = Field(
         None, description="Task description")
     start: Optional[datetime] = Field(None, description="Task start date")
     end: Optional[datetime] = Field(None, description="Task end date")
     parent: Optional[int] = Field(None, description="Parent task ID")
     assignee: Optional[str] = Field(None, description="Task assignee email")
-    progress: Optional[float] = Field(None, description="Task progress percentage")
+    progress: Optional[float] = Field(
+        None, description="Task progress percentage")
     type: Optional[str] = Field(None, description="Task type")
     open: Optional[bool] = Field(None, description="Whether task is open")
     classification: Optional[str] = Field(
@@ -19,7 +21,18 @@ class TaskBase(BaseModel):
 
 
 class CreateTaskInputDataModel(TaskBase):
-    project_id: str = Field(..., description="Project ID")
+    project_id: str
+    text: str
+    task_description: str
+    start: str
+    end: str
+    assignee: str
+    parent: int
+    progress: int
+    type: str
+    open: bool
+    classification: str
+    priority: str
 
 
 class UpdateTaskInputDataModel(TaskBase):
@@ -60,8 +73,13 @@ class ReportInputDataModel(BaseModel):
 
 class UpdateTaskModel(BaseModel):
     task_id: Optional[str] = Field(None, description="Task ID")
-    project_id: str = Field(..., description="Project ID")
+    project_id: Optional[str] = Field(None, description="Project ID")
     task: Optional[TaskBase] = Field(
         None, description="Task object with updated fields")
     links: Optional[List[dict]] = Field(
         None, description="Array of task links")
+
+
+class CommentInputDataModel(BaseModel):
+    task_id: str = Field(..., description="Task ID")
+    content: str = Field(..., description="Comment content")

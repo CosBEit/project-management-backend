@@ -13,7 +13,8 @@ from server.modals.tasks import (
     DeleteTaskInputDataModel,
     ProjectLinksInputDataModel,
     ManualInputDataModel,
-    ReportInputDataModel
+    ReportInputDataModel,
+    CommentInputDataModel
 )
 from server.dependencies.auth import OAuth2PasswordBearerWithCookie
 from server.configs.db import tasks_collection, links_collection, projects_collection
@@ -53,15 +54,19 @@ async def create_task(
         # Create a new task document
         _id = str(uuid.uuid4())
 
+        # Parse the date strings into datetime objects
+        start_date = datetime.strptime(task_data.start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(task_data.end, "%Y-%m-%d").date()
+
         new_task = {
             "_id": _id,
             "project_id": task_data.project_id,
             "text": task_data.text,
             "task_description": task_data.task_description,
-            "start": datetime.combine(task_data.start, datetime.min.time()),
-            "end": datetime.combine(task_data.end, datetime.max.time()),
-            "base_start": datetime.combine(task_data.start, datetime.min.time()),
-            "base_end": datetime.combine(task_data.end, datetime.max.time()),
+            "start": datetime.combine(start_date, datetime.min.time()),
+            "end": datetime.combine(end_date, datetime.max.time()),
+            "base_start": datetime.combine(start_date, datetime.min.time()),
+            "base_end": datetime.combine(end_date, datetime.max.time()),
             "assignee": task_data.assignee,
             "parent": task_data.parent,
             "progress": task_data.progress,
@@ -70,7 +75,8 @@ async def create_task(
             "open": task_data.open,
             "created_at": datetime.now(),
             "status": "not_started",
-            "created_by": current_user["email"]
+            "created_by": current_user["email"],
+            "priority": task_data.priority
         }
 
         await tasks_collection.insert_one(new_task)
@@ -190,65 +196,71 @@ async def get_tasks(
         ) from e
 
 
-# @router.get("/tasks/{task_id}")
-# async def get_task(
-#     task_id: str,
-#     current_user: dict = Depends(oauth2_scheme),
-# ):
-#     """Get a specific task by ID.
+@router.get("/tasks/{task_id}")
+async def get_task(
+    task_id: str,
+    current_user: dict = Depends(oauth2_scheme),
+):
+    """Get a specific task by ID.
 
-#     Args:
-#         task_id (str): The ID of the task to retrieve.
-#         current_user (dict): The current authenticated user.
-#         db: Database connection.
+    Args:
+        task_id (str): The ID of the task to retrieve.
+        current_user (dict): The current authenticated user.
+        db: Database connection.
 
-#     Returns:
-#         dict: The task details.
+    Returns:
+        dict: The task details.
 
-#     Raises:
-#         HTTPException: If the task is not found or an error occurs.
-#     """
-#     try:
-#         task = await tasks_collection.find_one(
-#             {"_id": task_id},
-#             {
-#                 "_id": 1,
-#                 "text": 1,
-#                 "task_description": 1,
-#                 "start": 1,
-#                 "end": 1,
-#                 "parent": 1,
-#                 "assignee": 1,
-#                 "progress": 1,
-#                 "created_at": 1,
-#                 "created_by": 1,
-#                 "type": 1,
-#                 "classification": 1,
-#                 "status": 1,
-#                 "open": 1
-#             }
-#         )
+    Raises:
+        HTTPException: If the task is not found or an error occurs.
+    """
+    try:
+        task = await tasks_collection.find_one(
+            {"_id": task_id},
+            {
+                "_id": 1,
+                "text": 1,
+                "task_description": 1,
+                "start": 1,
+                "end": 1,
+                "parent": 1,
+                "assignee": 1,
+                "progress": 1,
+                "created_at": 1,
+                "created_by": 1,
+                "type": 1,
+                "classification": 1,
+                "status": 1,
+                "open": 1,
+                "priority": 1
+            }
+        )
 
+        if not task:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found"
+            )
 
-#         # Convert datetime objects to date strings
-#         if "created_at" in task and "start" in task and "end" in task:
-#             task["start"] = task["start"].date().isoformat()
-#             task["end"] = task["end"].date().isoformat()
-#             task["created_at"] = task["created_at"].date().isoformat()
+        # Convert datetime objects to date strings
+        if "created_at" in task and "start" in task and "end" in task:
+            task["start"] = task["start"].date().isoformat()
+            task["end"] = task["end"].date().isoformat()
+            task["created_at"] = task["created_at"].date().isoformat()
 
-#         task["id"] = task["_id"]
-#         del task["_id"]
+        task["id"] = task["_id"]
+        del task["_id"]
 
-#         return task
+        return task
 
-#     except HTTPException as e:
-#         raise e
-#     except Exception as e:
-#         traceback.print_exc()
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=str(e)
-#         ) from e
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) from e
 
 
 # @router.put("/tasks/{task_id}")
@@ -1167,6 +1179,119 @@ async def update_task(
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={"message": "Task updated successfully"}
+        )
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) from e
+
+
+@router.post("/tasks/comment")
+async def create_comment(
+    comment_data: CommentInputDataModel,
+    current_user: dict = Depends(oauth2_scheme),
+):
+    """Create a comment for a specific task.
+
+    Args:
+        comment_data (CommentInputDataModel): The comment data.
+        current_user (dict): The current authenticated user.
+
+    Returns:
+        JSONResponse: A response indicating the comment creation status.
+
+    Raises:
+        HTTPException: If the user is not authorized or an error occurs.
+    """
+    try:
+        # Check if the current user is a user (not admin)
+        if current_user and current_user["role"] not in ["user", "admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="You do not have permission to perform this action."
+            )
+
+        # Create the comment object
+        created_at = datetime.now()
+        comment = {
+            "id": str(uuid.uuid4()),
+            "content": comment_data.content,
+            "created_at": created_at.isoformat(),  # Convert datetime to ISO format string
+            "created_by": current_user["email"]
+        }
+
+        # Add the comment to the task's comments array
+        await tasks_collection.update_one(
+            {"_id": comment_data.task_id},
+            {"$push": {"comments": {
+                "id": comment["id"],
+                "content": comment["content"],
+                "created_at": created_at,  # Store as datetime in database
+                "created_by": comment["created_by"]
+            }}}
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"message": "Comment added successfully", "comment": comment}
+        )
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) from e
+
+
+@router.get("/tasks/comments/{task_id}")
+async def get_comments(
+    task_id: str,
+    current_user: dict = Depends(oauth2_scheme),
+):
+    """Get all comments for a specific task.
+
+    Args:
+        task_id (str): The ID of the task to retrieve comments for.
+        current_user (dict): The current authenticated user.
+
+    Returns:
+        JSONResponse: A response containing the comments.
+
+    Raises:
+        HTTPException: If the user is not authorized or an error occurs.
+    """
+    try:
+        # Check if the current user is a user (not admin)
+        if current_user and current_user["role"] not in ["user", "admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="You do not have permission to perform this action."
+            )
+
+        # Get the task with its comments
+        task = await tasks_collection.find_one(
+            {"_id": task_id},
+            {"comments": 1}
+        )
+
+        comments = task.get("comments", []) if task else []
+
+        # Convert datetime objects to ISO format strings
+        for comment in comments:
+            if "created_at" in comment:
+                comment["created_at"] = comment["created_at"].isoformat()
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"comments": comments}
         )
 
     except HTTPException as e:

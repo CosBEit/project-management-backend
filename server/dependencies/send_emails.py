@@ -101,7 +101,7 @@ async def send_task_creation_email(recipient_email, task_data):
             assignee=task_data["assignee"],
             progress=task_data["progress"],
             # Replace with your actual task URL
-            task_link=f"https://cosbe.inc/tasks/{task_data['_id']}"
+            task_link=os.getenv("FRONTEND_URL")
         )
 
         subject = "新規タスク作成のお知らせ"
@@ -149,7 +149,7 @@ async def send_assignee_change_email(recipient_email, task_data, old_assignee, n
             old_assignee=old_assignee,
             new_assignee=new_assignee,
             # Replace with your actual task URL
-            task_link=f"https://cosbe.inc/tasks/{task_data['_id']}"
+            task_link=os.getenv("FRONTEND_URL")
         )
 
         subject = "タスク担当者変更のお知らせ"
