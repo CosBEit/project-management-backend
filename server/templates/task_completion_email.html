@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク完了のお知らせ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #4B0082;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .task-details {
+            background-color: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4B0082;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+        .next-task {
+            background-color: #e8f5e9;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            border-left: 4px solid #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>タスク完了のお知らせ</h1>
+        </div>
+        <div class="content">
+            {% if is_next_task %}
+            <p>前のタスクが完了したため、以下のタスクを開始できます：</p>
+            {% else %}
+            <p>以下のタスクが完了しました：</p>
+            {% endif %}
+            <div class="task-details">
+                <h2>{{ task_name }}</h2>
+                <p><strong>説明：</strong> {{ task_description }}</p>
+                <p><strong>開始日：</strong> {{ start_date }}</p>
+                <p><strong>終了日：</strong> {{ end_date }}</p>
+                <p><strong>担当者：</strong> {{ assignee }}</p>
+                <p><strong>進捗状況：</strong> {{ progress }}%</p>
+            </div>
+            {% if is_next_task %}
+            <div class="next-task">
+                <p><strong>次のタスクの準備ができました。</strong> タスクの詳細を確認し、作業を開始してください。</p>
+            </div>
+            {% endif %}
+            <p>タスクの詳細を確認するには、以下のリンクをクリックしてください：</p>
+            <a href="{{ task_link }}" class="button">タスクを確認</a>
+        </div>
+        <div class="footer">
+            <p>このメールは自動送信されています。返信はできませんのでご注意ください。</p>
+        </div>
+    </div>
+</body>
+</html> 

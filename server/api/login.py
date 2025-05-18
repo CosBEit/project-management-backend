@@ -1,13 +1,13 @@
-
 import os
 import traceback
 from datetime import datetime, timedelta
 import uuid
-from fastapi import APIRouter, HTTPException, status, Response
+from fastapi import APIRouter, HTTPException, status, Response, Request
 from server.modals.login import LoginInputDataModel, ForgotPasswordInputDataModel, ResetPasswordInputDataModel
 from dotenv import load_dotenv
-from server.dependencies.auth import get_user, get_password_hash, authenticate_user, create_csrf_token, create_session_id_hash, send_forgot_password_email  
-from server.configs.db import users_collection
+from server.dependencies.auth import get_user, get_password_hash, authenticate_user, create_csrf_token, create_session_id_hash, send_forgot_password_email
+from server.configs.db import users_collection, reset_tokens_collection
+from server.dependencies.rate_limiter import check_rate_limit
 from fastapi.responses import JSONResponse
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
@@ -17,6 +17,7 @@ from jose import jwt, JWTError
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 router = APIRouter()
 
+
 @router.get("/health")
 async def health_check():
     """Check if the API is running."""
@@ -24,6 +25,7 @@ async def health_check():
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @router.post("/auth/admin/register")
 async def register(login_data: LoginInputDataModel):
@@ -67,8 +69,11 @@ async def register(login_data: LoginInputDataModel):
 
 
 @router.post("/auth/login")
-async def login(loginData: LoginInputDataModel):
+async def login(loginData: LoginInputDataModel, request: Request):
     try:
+        # Check rate limit
+        await check_rate_limit(request, "login")
+
         user = await authenticate_user(loginData.email, loginData.password)
         if not user:
             raise HTTPException(
@@ -146,7 +151,7 @@ async def login(loginData: LoginInputDataModel):
 
 
 @router.post("/auth/forgot-password")
-async def forgot_password(forgot_password_data: ForgotPasswordInputDataModel):
+async def forgot_password(forgot_password_data: ForgotPasswordInputDataModel, request: Request):
     """Handle forgot password request and send reset token via email.
 
     Args:
@@ -156,14 +161,18 @@ async def forgot_password(forgot_password_data: ForgotPasswordInputDataModel):
         JSONResponse: A response indicating the status of the request.
     """
     try:
+        # Check rate limit
+        await check_rate_limit(request, "forgot_password")
+
         # Check if the user exists
         user = await get_user(forgot_password_data.email)
-        link_expiration = {"format": "minutes", "value": 30}  # 30 minutes
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+                detail="This account is not registered.",
             )
+
+        link_expiration = {"format": "minutes", "value": 30}  # 30 minutes
 
         # Create a unique token
         token = create_csrf_token(
@@ -188,14 +197,17 @@ async def forgot_password(forgot_password_data: ForgotPasswordInputDataModel):
             "message": "パスワードリセットリンクを送信しました。"
         }
         return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+    except HTTPException as e:
+        raise e
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         ) from e
 
+
 @router.post("/auth/reset-password")
-async def reset_password(reset_password_data: ResetPasswordInputDataModel):
+async def reset_password(reset_password_data: ResetPasswordInputDataModel, request: Request):
     """Reset the user's password after verifying the token.
 
     Args:
@@ -205,10 +217,21 @@ async def reset_password(reset_password_data: ResetPasswordInputDataModel):
         JSONResponse: A response indicating the status of the request.
     """
     try:
+        # Check rate limit
+        await check_rate_limit(request, "reset_password")
+
         token = reset_password_data.token
         if not token:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Token is missing"
+            )
+
+        # Check if token has already been used
+        used_token = await reset_tokens_collection.find_one({"token": token})
+        if used_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This password reset link has already been used. Please request a new one."
             )
 
         # Verify the token
@@ -238,6 +261,13 @@ async def reset_password(reset_password_data: ResetPasswordInputDataModel):
             {"email": email},
             {"$set": {"password": password_hash}}
         )
+
+        # Mark the token as used
+        await reset_tokens_collection.insert_one({
+            "token": token,
+            "email": email,
+            "used_at": datetime.now()
+        })
 
         content = {"message": "パスワードをリセットしました。"}
         return JSONResponse(status_code=status.HTTP_200_OK, content=content)

@@ -123,9 +123,7 @@ async def get_all_projects(current_user: str = Depends(oauth2_scheme)):
             )
 
         # Retrieve the user's projects from the database
-        projects = await projects_collection.find(
-            {"created_by": current_user["email"]}
-        ).to_list(length=None)
+        projects = await projects_collection.find({}).to_list(length=None)
 
         # Format dates for response
         formatted_projects = []

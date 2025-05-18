@@ -16,6 +16,8 @@ class TaskBase(BaseModel):
         None, description="Task progress percentage")
     type: Optional[str] = Field(None, description="Task type")
     open: Optional[bool] = Field(None, description="Whether task is open")
+    status: Optional[str] = Field(None, description="Task status")
+    progress: Optional[int] = Field(None, description="Task progress percentage")
     classification: Optional[str] = Field(
         None, description="Task classification")
 
